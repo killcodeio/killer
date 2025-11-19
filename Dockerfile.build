@@ -1,0 +1,89 @@
+# Overload Multi-Architecture Build Environment
+# Based on weaver's Dockerfile with all cross-compilation toolchains
+# Enable with: DOCKER_BUILDKIT=1 docker build
+
+FROM rust:1.91-slim
+
+WORKDIR /build
+
+# OPTIMIZATION: Use BuildKit cache mounts for apt packages
+# This caches downloaded .deb files even if package list changes
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
+    dpkg --add-architecture i386 && \
+    apt-get update && \
+    apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    g++ \
+    gcc \
+    binutils \
+    cmake \
+    # Linux toolchains
+    gcc-x86-64-linux-gnu \
+    g++-x86-64-linux-gnu \
+    gcc-i686-linux-gnu \
+    gcc-arm-linux-gnueabihf \
+    g++-arm-linux-gnueabihf \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    # Windows toolchains
+    mingw-w64 \
+    gcc-mingw-w64-x86-64 \
+    gcc-mingw-w64-i686 \
+    # Testing tools
+    qemu-user \
+    qemu-user-static \
+    qemu-user-binfmt
+
+# OPTIMIZATION: Install Rust targets with cache mount
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    rustup target add \
+    x86_64-unknown-linux-gnu \
+    i686-unknown-linux-gnu \
+    aarch64-unknown-linux-gnu \
+    armv7-unknown-linux-gnueabihf \
+    x86_64-pc-windows-gnu \
+    i686-pc-windows-gnu \
+    x86_64-unknown-linux-musl \
+    x86_64-apple-darwin \
+    aarch64-apple-darwin
+
+# Install sccache for faster incremental builds
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    cargo install sccache --locked
+
+# Configure sccache as the default compiler wrapper
+ENV RUSTC_WRAPPER=sccache
+ENV SCCACHE_DIR=/sccache
+
+# OPTIMIZATION: Copy only Cargo files first for dependency caching
+# This layer is cached unless Cargo.toml or Cargo.lock changes
+COPY Cargo.toml Cargo.lock ./
+
+# OPTIMIZATION: Create dummy source files to build dependencies with cache mount
+# This allows Docker to cache the dependency build layer
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/build/target \
+    mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src target/release/overload* target/release/deps/overload*
+
+# OPTIMIZATION: Now copy the actual source code
+# Only this layer and subsequent ones rebuild when you change code
+COPY . .
+
+# Accept KILLER_SERVER_URL as build argument and set as environment variable
+# This allows the URL to be baked into the binary at compile time
+ARG KILLER_SERVER_URL
+ENV KILLER_SERVER_URL=${KILLER_SERVER_URL}
+
+# Create output directory for versioned builds
+RUN mkdir -p /build/builds
+
+# Build script will be run by docker run command
+CMD ["bash", "scripts/build/docker/internal-docker-build.sh"]
