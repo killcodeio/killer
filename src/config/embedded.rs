@@ -32,20 +32,49 @@ pub fn load_embedded_config() -> Result<Config, String> {
         return Ok(config);
     }
     
-    // If static is empty, try reading from our own executable file
-    // This handles the case where we're running from memfd after extraction
-    // Read from current executable path (cross-platform)
+    // If static is empty, try reading from our own executable file.
+    // This handles the case where we're running from memfd after extraction.
+    
+    // Why we need special handling for Linux vs Windows:
+    //
+    // 1. Linux (memfd): The merger uses memfd_create to run the binary entirely in memory.
+    //    - std::env::current_exe() returns a path like "/memfd:overload (deleted)"
+    //    - std::fs::read() fails because this "file" doesn't exist on disk.
+    //    - Fix: /proc/self/exe is a magic kernel link to the running binary's content,
+    //      allowing us to read ourselves even if we are "deleted" or fileless.
+    //
+    // 2. Windows: Does not support memfd. The merger writes a real temp file to disk.
+    //    - std::env::current_exe() returns a valid path (e.g., C:\Temp\overload.exe).
+    //    - std::fs::read() works normally.
+    //    - Note: Windows has no /proc filesystem, so the Linux fix would fail there.
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(exe_data) = std::fs::read("/proc/self/exe") {
+            if let Ok(config) = find_config_in_bytes(&exe_data) {
+                return Ok(config);
+            }
+        }
+    }
+
+    // Standard path resolution (works for Windows and normal Linux files)
     let current_exe = std::env::current_exe()
         .map_err(|e| format!("Failed to get current executable path: {}", e))?;
         
     let exe_data = std::fs::read(&current_exe)
         .map_err(|e| format!("Failed to read executable from {}: {}", current_exe.display(), e))?;
     
-    // Search for .license section in ELF
+    find_config_in_bytes(&exe_data)
+}
+
+fn find_config_in_bytes(data: &[u8]) -> Result<Config, String> {
+    // Search for .license section
     // Simple search: find 4KB block with JSON data
     const LICENSE_SIZE: usize = 4096;
-    for offset in (0..exe_data.len().saturating_sub(LICENSE_SIZE)).step_by(4) {
-        let slice = &exe_data[offset..offset + LICENSE_SIZE];
+    
+    // Optimization: The license is likely aligned to 4 bytes
+    for offset in (0..data.len().saturating_sub(LICENSE_SIZE)).step_by(4) {
+        let slice = &data[offset..offset + LICENSE_SIZE];
         
         // Check if this looks like our license section (starts with '{')
         if slice[0] == b'{' {
