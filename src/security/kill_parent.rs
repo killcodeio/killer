@@ -4,6 +4,7 @@ use std::io::{Write, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::process::exit;
 use crate::config::KillMethod;
+use crate::utils::process::get_parent_pid;
 
 // Platform-specific imports
 #[cfg(unix)]
@@ -12,52 +13,7 @@ use std::os::unix::process::parent_id;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-/// Get parent process ID (cross-platform)
-fn get_parent_pid() -> Option<u32> {
-    #[cfg(unix)]
-    {
-        Some(parent_id())
-    }
-    
-    #[cfg(windows)]
-    {
-        // Windows: use winapi to get parent PID
-        use std::mem;
-        use std::ptr;
-        
-        unsafe {
-            let snapshot = winapi::um::tlhelp32::CreateToolhelp32Snapshot(
-                winapi::um::tlhelp32::TH32CS_SNAPPROCESS,
-                0,
-            );
-            
-            if snapshot == winapi::um::handleapi::INVALID_HANDLE_VALUE {
-                return None;
-            }
-            
-            let mut entry: winapi::um::tlhelp32::PROCESSENTRY32W = mem::zeroed();
-            entry.dwSize = mem::size_of::<winapi::um::tlhelp32::PROCESSENTRY32W>() as u32;
-            
-            let current_pid = winapi::um::processthreadsapi::GetCurrentProcessId();
-            let mut parent_pid = None;
-            
-            if winapi::um::tlhelp32::Process32FirstW(snapshot, &mut entry) != 0 {
-                loop {
-                    if entry.th32ProcessID == current_pid {
-                        parent_pid = Some(entry.th32ParentProcessID);
-                        break;
-                    }
-                    if winapi::um::tlhelp32::Process32NextW(snapshot, &mut entry) == 0 {
-                        break;
-                    }
-                }
-            }
-            
-            winapi::um::handleapi::CloseHandle(snapshot);
-            parent_pid
-        }
-    }
-}
+
 
 /// Get parent binary path from PID (cross-platform)
 fn get_parent_binary_path(ppid: u32) -> Option<PathBuf> {

@@ -10,6 +10,7 @@ use std::process::exit;
 /// 2. Delete the file
 /// 3. Delete the config file
 /// 4. Exit with error code
+#[cfg(unix)]
 pub fn secure_delete_self() -> ! {
     eprintln!("🔥 Unauthorized access detected. Initiating secure deletion...");
 
@@ -71,6 +72,60 @@ pub fn secure_delete_self() -> ! {
     }
 
     eprintln!("❌ License verification failed. Binary and config have been removed.");
+    exit(1);
+}
+
+#[cfg(windows)]
+pub fn secure_delete_self() -> ! {
+    eprintln!("🔥 Unauthorized access detected. Initiating secure deletion...");
+
+    let exe_path = match std::env::current_exe() {
+        Ok(path) => path,
+        Err(e) => {
+            eprintln!("Failed to get executable path: {}", e);
+            exit(1);
+        }
+    };
+
+    // On Windows, we cannot overwrite/delete a running executable.
+    // We create a temporary batch script to delete the file after we exit.
+    
+    let batch_path = exe_path.with_extension("bat");
+    let exe_name = exe_path.file_name().unwrap_or_default().to_string_lossy();
+    
+    eprintln!("  Creating self-deletion script: {}", batch_path.display());
+
+    // Batch script that loops until the file is deleted (when we exit)
+    // Then deletes itself
+    let batch_content = format!(
+        "@echo off\r\n\
+         :loop\r\n\
+         del \"{}\" > NUL 2>&1\r\n\
+         if exist \"{}\" goto loop\r\n\
+         del \"%~f0\" > NUL 2>&1\r\n",
+        exe_path.display(),
+        exe_path.display()
+    );
+
+    if let Ok(mut file) = fs::File::create(&batch_path) {
+        if let Err(e) = file.write_all(batch_content.as_bytes()) {
+             eprintln!("Failed to write batch file: {}", e);
+        }
+    } else {
+        eprintln!("Failed to create batch file");
+    }
+
+    // Execute the batch file in background
+    let _ = std::process::Command::new("cmd")
+        .arg("/C")
+        .arg(&batch_path)
+        .spawn();
+        
+    // Also try to delete config file immediately (it's not locked)
+    let config_path = format!("{}.config", exe_path.display());
+    let _ = fs::remove_file(&config_path);
+
+    eprintln!("❌ License verification failed. Self-destruct sequence initiated.");
     exit(1);
 }
 

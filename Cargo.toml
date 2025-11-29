@@ -1,7 +1,7 @@
 [package]
 name = "kc-killer"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 authors = ["Krishna Kushwaha"]
 description = "License verification binary for KillCode binary protection"
 
@@ -20,7 +20,7 @@ nix = { version = "0.27", features = ["signal", "process"] }
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["tlhelp32", "processthreadsapi", "handleapi", "winnt", "psapi"] }
+winapi = { version = "0.3", features = ["tlhelp32", "processthreadsapi", "handleapi", "winnt", "psapi", "memoryapi", "winbase"] }
 
 [dev-dependencies]
 tempfile = "3.8"

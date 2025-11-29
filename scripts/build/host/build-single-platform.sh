@@ -47,8 +47,8 @@ if [ -z "$PLATFORM" ]; then
     echo "  linux-x86       - Linux 32-bit (i686-unknown-linux-gnu)"
     echo "  linux-arm64     - Linux ARM 64-bit (aarch64-unknown-linux-gnu)"
     echo "  linux-armv7     - Linux ARMv7 (armv7-unknown-linux-gnueabihf)"
-    echo "  windows-x86_64  - Windows 64-bit (x86_64-pc-windows-gnu)"
-    echo "  windows-x86     - Windows 32-bit (i686-pc-windows-gnu)"
+    echo "  windows-x86_64  - Windows 64-bit (x86_64-pc-windows-gnullvm)"
+    echo "  windows-x86     - Windows 32-bit (i686-pc-windows-gnullvm)"
     exit 1
 fi
 
@@ -97,14 +97,36 @@ case "$PLATFORM" in
         NAME="Linux ARMv7"
         ;;
     windows-x86_64)
-        TARGET="x86_64-pc-windows-gnu"
-        LINKER="x86_64-w64-mingw32-gcc"
-        NAME="Windows x86-64"
+        HOST_OS=$(uname -s)
+        if [[ "$HOST_OS" == "Linux" ]]; then
+            # Cross-compiling from Linux: Use LLVM-MinGW with static linking
+            TARGET="x86_64-pc-windows-gnullvm"
+            LINKER="x86_64-w64-mingw32-clang"
+            export RUSTFLAGS="-C target-feature=+crt-static"
+            NAME="Windows x86-64 (LLVM Cross-Compile)"
+        else
+            # Native Windows build: Use MSVC
+            TARGET="x86_64-pc-windows-msvc"
+            # No specific linker needed for MSVC, cargo handles it
+            LINKER="" 
+            NAME="Windows x86-64 (MSVC Native)"
+        fi
         ;;
     windows-x86)
-        TARGET="i686-pc-windows-gnu"
-        LINKER="i686-w64-mingw32-gcc"
-        NAME="Windows x86 (32-bit)"
+        HOST_OS=$(uname -s)
+        if [[ "$HOST_OS" == "Linux" ]]; then
+            # Cross-compiling from Linux: Use LLVM-MinGW with static linking
+            TARGET="i686-pc-windows-gnullvm"
+            LINKER="i686-w64-mingw32-clang"
+            export RUSTFLAGS="-C target-feature=+crt-static"
+            NAME="Windows x86 (LLVM Cross-Compile)"
+        else
+            # Native Windows build: Use MSVC
+            TARGET="i686-pc-windows-msvc"
+            # No specific linker needed for MSVC, cargo handles it
+            LINKER=""
+            NAME="Windows x86 (MSVC Native)"
+        fi
         ;;
     *)
         echo "❌ Unknown platform: $PLATFORM"
@@ -153,20 +175,26 @@ if cargo build --release --target "$TARGET"; then
     echo "========================================================="
     
     # Check for binary
+    OUTPUT_DIR="builds/$VERSION/$PLATFORM"
+    mkdir -p "$OUTPUT_DIR"
+
     if [ -f "target/$TARGET/release/kc-killer.exe" ]; then
-        SIZE=$(stat -c%s "target/$TARGET/release/kc-killer.exe" | numfmt --to=iec-i --suffix=B)
+        cp "target/$TARGET/release/kc-killer.exe" "$OUTPUT_DIR/overload.exe"
+        SIZE=$(stat -c%s "$OUTPUT_DIR/overload.exe" | numfmt --to=iec-i --suffix=B)
         echo "✅ Build successful! - $SIZE"
         echo ""
         echo "📁 Binary location:"
-        echo "   target/$TARGET/release/kc-killer.exe"
-        ls -lh "target/$TARGET/release/kc-killer.exe"
+        echo "   $OUTPUT_DIR/overload.exe"
+        ls -lh "$OUTPUT_DIR/overload.exe"
     elif [ -f "target/$TARGET/release/kc-killer" ]; then
-        SIZE=$(stat -c%s "target/$TARGET/release/kc-killer" | numfmt --to=iec-i --suffix=B)
+        cp "target/$TARGET/release/kc-killer" "$OUTPUT_DIR/overload"
+        chmod +x "$OUTPUT_DIR/overload"
+        SIZE=$(stat -c%s "$OUTPUT_DIR/overload" | numfmt --to=iec-i --suffix=B)
         echo "✅ Build successful! - $SIZE"
         echo ""
         echo "📁 Binary location:"
-        echo "   target/$TARGET/release/kc-killer"
-        ls -lh "target/$TARGET/release/kc-killer"
+        echo "   $OUTPUT_DIR/overload"
+        ls -lh "$OUTPUT_DIR/overload"
     else
         echo "❌ Build failed - Binary not found"
         exit 1

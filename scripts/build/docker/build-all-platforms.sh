@@ -82,29 +82,35 @@ if [ -d "builds/$VERSION" ]; then
     exit 0
 fi
 
-# Enable BuildKit for better caching
-export DOCKER_BUILDKIT=1
+# Track results
+SUCCESS_COUNT=0
+FAIL_COUNT=0
+declare -a FAILED_PLATFORMS
 
-# Build the Docker image with BuildKit optimizations
-echo "📦 Building Docker image with BuildKit..."
-docker build -f Dockerfile.build \
-    --build-arg KILLER_SERVER_URL="$KILLER_SERVER_URL" \
-    -t overload-builder .
+# List of platforms to build
+PLATFORMS=(
+    "linux-x86_64"
+    "linux-x86"
+    "linux-arm64"
+    "linux-armv7"
+    "windows-x86_64"
+    "windows-x86"
+    "macos-x86_64"
+    "macos-arm64"
+)
 
-echo ""
-echo "🔨 Running build in Docker container..."
-docker run --rm \
-    -e VERSION="$VERSION" \
-    -e KILLER_SERVER_URL="$KILLER_SERVER_URL" \
-    -v "$(pwd)/builds:/build/builds" \
-    -v "sccache-killer:/sccache" \
-    -v "cargo-registry:/usr/local/cargo/registry" \
-    -v "cargo-git:/usr/local/cargo/git" \
-    overload-builder \
-    bash -c "sccache --show-stats && ./scripts/build/docker/internal-docker-build.sh && sccache --show-stats"
-
-echo ""
-echo "✅ Build complete! Binaries are in ./builds/$VERSION/"
-echo ""
-echo "📁 Built binaries:"
-find "builds/$VERSION" -name "overload*" -type f -exec ls -lh {} \;
+# Build loop
+for platform in "${PLATFORMS[@]}"; do
+    echo "---------------------------------------------------------"
+    echo "🐳 Starting Docker build for: $platform"
+    echo "---------------------------------------------------------"
+    
+    if ./scripts/build/docker/build-single-platform.sh "$platform"; then
+        ((SUCCESS_COUNT++))
+    else
+        echo "❌ Build failed for $platform"
+        ((FAIL_COUNT++))
+        FAILED_PLATFORMS+=("$platform")
+    fi
+    echo ""
+done

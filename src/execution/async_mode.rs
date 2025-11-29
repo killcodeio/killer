@@ -7,12 +7,13 @@ use std::thread;
 use std::time::Duration;
 use crate::verification;
 use crate::config::Config;
+use crate::utils::process::get_parent_pid;
 
 pub fn execute_async(config: &Config) -> ! {
     eprintln!("⚡ Running in ASYNC mode: Returning to loader immediately, verifying in background...");
     
     // Get parent PID (the merged binary loader) before we exit
-    let parent_pid = std::os::unix::process::parent_id();
+    let parent_pid = get_parent_pid().unwrap_or(0);
     
     eprintln!("📍 Parent loader PID: {} (will be killed if verification fails)", parent_pid);
     
@@ -68,17 +69,33 @@ pub fn execute_async(config: &Config) -> ! {
     exit(0);
 }
 
-#[cfg(unix)]
+
+
 fn kill_process_tree(pid: i32) {
-    use nix::sys::signal::{kill, Signal};
-    use nix::unistd::Pid;
-    
-    let target_pid = Pid::from_raw(pid);
-    let pgid = Pid::from_raw(-pid);
-    let _ = kill(pgid, Signal::SIGTERM);
-    thread::sleep(Duration::from_secs(1));
-    let _ = kill(pgid, Signal::SIGKILL);
-    let _ = kill(target_pid, Signal::SIGKILL);
+    #[cfg(unix)]
+    {
+        use nix::sys::signal::{kill, Signal};
+        use nix::unistd::Pid;
+        
+        let target_pid = Pid::from_raw(pid);
+        let pgid = Pid::from_raw(-pid);
+        let _ = kill(pgid, Signal::SIGTERM);
+        thread::sleep(Duration::from_secs(1));
+        let _ = kill(pgid, Signal::SIGKILL);
+        let _ = kill(target_pid, Signal::SIGKILL);
+    }
+
+    #[cfg(windows)]
+    {
+        use std::process::Command;
+        // Use taskkill to kill the process tree
+        // /PID <pid> : Process ID
+        // /T : Terminate child processes (tree)
+        // /F : Force terminate
+        let _ = Command::new("taskkill")
+            .args(&["/PID", &pid.to_string(), "/T", "/F"])
+            .output();
+    }
     
     eprintln!("💀 [Background] Process tree killed");
 }

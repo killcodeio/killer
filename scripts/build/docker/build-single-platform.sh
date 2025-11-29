@@ -83,8 +83,8 @@ if [ -z "$PLATFORM" ]; then
     echo "  linux-x86       - Linux 32-bit (i686-unknown-linux-gnu)"
     echo "  linux-arm64     - Linux ARM 64-bit (aarch64-unknown-linux-gnu)"
     echo "  linux-armv7     - Linux ARMv7 (armv7-unknown-linux-gnueabihf)"
-    echo "  windows-x86_64  - Windows 64-bit (x86_64-pc-windows-gnu)"
-    echo "  windows-x86     - Windows 32-bit (i686-pc-windows-gnu)"
+    echo "  windows-x86_64  - Windows 64-bit (x86_64-pc-windows-gnullvm)"
+    echo "  windows-x86     - Windows 32-bit (i686-pc-windows-gnullvm)"
     echo "  macos-x86_64    - macOS Intel (x86_64-apple-darwin)"
     echo "  macos-arm64     - macOS Apple Silicon (aarch64-apple-darwin)"
     exit 1
@@ -121,14 +121,14 @@ case "$PLATFORM" in
         NAME="Linux ARMv7"
         ;;
     windows-x86_64)
-        TARGET="x86_64-pc-windows-gnu"
-        LINKER="x86_64-w64-mingw32-gcc"
-        NAME="Windows x86-64"
+        TARGET="x86_64-pc-windows-gnullvm"
+        LINKER="x86_64-w64-mingw32-clang"
+        NAME="Windows x86-64 (LLVM)"
         ;;
     windows-x86)
-        TARGET="i686-pc-windows-gnu"
-        LINKER="i686-w64-mingw32-gcc"
-        NAME="Windows x86 (32-bit)"
+        TARGET="i686-pc-windows-gnullvm"
+        LINKER="i686-w64-mingw32-clang"
+        NAME="Windows x86 (32-bit) (LLVM)"
         ;;
     macos-x86_64)
         TARGET="x86_64-apple-darwin"
@@ -189,6 +189,11 @@ echo "📦 Building: $NAME ($TARGET)"
 # Set up cross-compilation linker
 LINKER_VAR="CARGO_TARGET_$(echo $TARGET | tr '[:lower:]' '[:upper:]' | tr '-' '_')_LINKER"
 export $LINKER_VAR=$LINKER
+
+# Enable static linking for Windows to avoid missing DLLs (libunwind, etc.)
+if [[ "$TARGET" == *"windows"* ]]; then
+    export RUSTFLAGS="-C target-feature=+crt-static"
+fi
 
 # Build and capture exit code
 cargo build --release --target "$TARGET" 2>&1 || true

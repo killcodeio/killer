@@ -302,19 +302,19 @@ fi
 if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "windows-x86_64" ]; then
     echo "🪟 Windows x86_64:"
     
-    if command_exists "x86_64-w64-mingw32-gcc"; then
-        echo -e "  ${GREEN}✅${NC} mingw-w64 (x86_64)"
+    if command_exists "x86_64-w64-mingw32-clang"; then
+        echo -e "  ${GREEN}✅${NC} llvm-mingw (x86_64)"
     else
-        echo -e "  ${RED}❌${NC} mingw-w64 (x86_64)"
-        add_missing_package "mingw-w64"
-        add_missing_package "mingw-x86_64"
+        echo -e "  ${RED}❌${NC} llvm-mingw (x86_64)"
+        echo "     Please install llvm-mingw toolchain (e.g. aur/llvm-mingw-w64-toolchain-ucrt-bin)"
+        MISSING_DEPS=1
     fi
     
-    if rust_target_installed "x86_64-pc-windows-gnu"; then
-        echo -e "  ${GREEN}✅${NC} Rust target: x86_64-pc-windows-gnu"
+    if rust_target_installed "x86_64-pc-windows-gnullvm"; then
+        echo -e "  ${GREEN}✅${NC} Rust target: x86_64-pc-windows-gnullvm"
     else
-        echo -e "  ${RED}❌${NC} Rust target: x86_64-pc-windows-gnu"
-        MISSING_TARGETS+=("x86_64-pc-windows-gnu")
+        echo -e "  ${RED}❌${NC} Rust target: x86_64-pc-windows-gnullvm"
+        MISSING_TARGETS+=("x86_64-pc-windows-gnullvm")
     fi
     echo ""
 fi
@@ -323,19 +323,19 @@ fi
 if [ "$PLATFORM" = "all" ] || [ "$PLATFORM" = "windows-x86" ]; then
     echo "🪟 Windows x86 (32-bit):"
     
-    if command_exists "i686-w64-mingw32-gcc"; then
-        echo -e "  ${GREEN}✅${NC} mingw-w64 (i686)"
+    if command_exists "i686-w64-mingw32-clang"; then
+        echo -e "  ${GREEN}✅${NC} llvm-mingw (i686)"
     else
-        echo -e "  ${RED}❌${NC} mingw-w64 (i686)"
-        add_missing_package "mingw-w64"
-        add_missing_package "mingw-i686"
+        echo -e "  ${RED}❌${NC} llvm-mingw (i686)"
+        echo "     Please install llvm-mingw toolchain (e.g. aur/llvm-mingw-w64-toolchain-ucrt-bin)"
+        MISSING_DEPS=1
     fi
     
-    if rust_target_installed "i686-pc-windows-gnu"; then
-        echo -e "  ${GREEN}✅${NC} Rust target: i686-pc-windows-gnu"
+    if rust_target_installed "i686-pc-windows-gnullvm"; then
+        echo -e "  ${GREEN}✅${NC} Rust target: i686-pc-windows-gnullvm"
     else
-        echo -e "  ${RED}❌${NC} Rust target: i686-pc-windows-gnu"
-        MISSING_TARGETS+=("i686-pc-windows-gnu")
+        echo -e "  ${RED}❌${NC} Rust target: i686-pc-windows-gnullvm"
+        MISSING_TARGETS+=("i686-pc-windows-gnullvm")
     fi
     echo ""
 fi

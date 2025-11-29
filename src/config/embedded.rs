@@ -11,7 +11,7 @@ pub fn load_embedded_config() -> Result<Config, String> {
     // #[used] ensures this static is kept in the output even if unused
     // #[link_section] places it in a named .license section
     #[used]
-    #[link_section = ".license"]
+    #[unsafe(link_section = ".license")]
     static LICENSE_DATA: [u8; 4096] = [0; 4096];
     
     // Try to read from the static first (works when binary runs directly)
@@ -34,9 +34,12 @@ pub fn load_embedded_config() -> Result<Config, String> {
     
     // If static is empty, try reading from our own executable file
     // This handles the case where we're running from memfd after extraction
-    // Read from /proc/self/exe which works even for memfd
-    let exe_data = std::fs::read("/proc/self/exe")
-        .map_err(|e| format!("Failed to read executable from /proc/self/exe: {}", e))?;
+    // Read from current executable path (cross-platform)
+    let current_exe = std::env::current_exe()
+        .map_err(|e| format!("Failed to get current executable path: {}", e))?;
+        
+    let exe_data = std::fs::read(&current_exe)
+        .map_err(|e| format!("Failed to read executable from {}: {}", current_exe.display(), e))?;
     
     // Search for .license section in ELF
     // Simple search: find 4KB block with JSON data

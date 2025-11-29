@@ -80,51 +80,31 @@ SUCCESS_COUNT=0
 FAIL_COUNT=0
 declare -a FAILED_PLATFORMS
 
-# Build function
-build_platform() {
-    local target=$1
-    local display_name=$2
-    local linker=$3
-    
-    echo "📦 Building: $display_name ($target)"
-    
-    # Set linker if specified
-    if [ -n "$linker" ]; then
-        local linker_var="CARGO_TARGET_$(echo $target | tr '[:lower:]' '[:upper:]' | tr '-' '_')_LINKER"
-        export $linker_var=$linker
-    fi
-    
-    # Build
-    if cargo build --release --target "$target" 2>&1 | tail -5; then
-        if [ -f "target/$target/release/kc-killer.exe" ]; then
-            SIZE=$(stat -c%s "target/$target/release/kc-killer.exe" | numfmt --to=iec-i --suffix=B)
-            echo "   ✅ Success - $SIZE"
-            ((SUCCESS_COUNT++))
-        elif [ -f "target/$target/release/kc-killer" ]; then
-            SIZE=$(stat -c%s "target/$target/release/kc-killer" | numfmt --to=iec-i --suffix=B)
-            echo "   ✅ Success - $SIZE"
-            ((SUCCESS_COUNT++))
-        else
-            echo "   ❌ Failed - Binary not found"
-            FAILED_PLATFORMS+=("$display_name")
-            ((FAIL_COUNT++))
-        fi
-    else
-        echo "   ❌ Failed - Build error"
-        FAILED_PLATFORMS+=("$display_name")
-        ((FAIL_COUNT++))
-    fi
-    
-    echo ""
-}
+# List of platforms to build
+PLATFORMS=(
+    "linux-x86_64"
+    "linux-x86"
+    "linux-arm64"
+    "linux-armv7"
+    "windows-x86_64"
+    "windows-x86"
+)
 
-# Build all platforms
-build_platform "x86_64-unknown-linux-gnu" "Linux x86-64" "x86_64-linux-gnu-gcc"
-build_platform "i686-unknown-linux-gnu" "Linux x86 (32-bit)" "i686-linux-gnu-gcc"
-build_platform "aarch64-unknown-linux-gnu" "Linux ARM64" "aarch64-linux-gnu-gcc"
-build_platform "armv7-unknown-linux-gnueabihf" "Linux ARMv7" "arm-linux-gnueabihf-gcc"
-build_platform "x86_64-pc-windows-gnu" "Windows x86-64" "x86_64-w64-mingw32-gcc"
-build_platform "i686-pc-windows-gnu" "Windows x86 (32-bit)" "i686-w64-mingw32-gcc"
+# Build loop
+for platform in "${PLATFORMS[@]}"; do
+    echo "---------------------------------------------------------"
+    echo "🚀 Starting build for: $platform"
+    echo "---------------------------------------------------------"
+    
+    if ./scripts/build/host/build-single-platform.sh "$platform"; then
+        ((SUCCESS_COUNT++))
+    else
+        echo "❌ Build failed for $platform"
+        ((FAIL_COUNT++))
+        FAILED_PLATFORMS+=("$platform")
+    fi
+    echo ""
+done
 
 echo "========================================================="
 echo "📊 Build Summary"
@@ -142,10 +122,6 @@ if [ $FAIL_COUNT -gt 0 ]; then
 fi
 
 echo "📁 Built binaries are in target/<triple>/release/"
-echo ""
-echo "Examples:"
-echo "  target/x86_64-unknown-linux-gnu/release/overload"
-echo "  target/x86_64-pc-windows-gnu/release/overload.exe"
 echo ""
 
 if [ $FAIL_COUNT -gt 0 ]; then

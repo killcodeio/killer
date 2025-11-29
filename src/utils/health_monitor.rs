@@ -24,6 +24,7 @@ impl HealthMonitor {
         
         eprintln!("📊 Opening health monitor: {}", shm_name);
         
+        #[cfg(unix)]
         unsafe {
             let name_cstr = CString::new(shm_name).ok()?;
             
@@ -58,6 +59,47 @@ impl HealthMonitor {
             
             eprintln!("✅ Health monitor initialized");
             
+            Some(Self {
+                shm_ptr: shm_ptr as *mut HealthStatus,
+            })
+        }
+
+        #[cfg(windows)]
+        unsafe {
+            use winapi::um::memoryapi::{MapViewOfFile, FILE_MAP_ALL_ACCESS};
+            use winapi::um::handleapi::CloseHandle;
+            use winapi::um::winbase::OpenFileMappingA;
+
+            let name_cstr = CString::new(shm_name).ok()?;
+            
+            let handle = OpenFileMappingA(
+                FILE_MAP_ALL_ACCESS,
+                0,
+                name_cstr.as_ptr(),
+            );
+
+            if handle.is_null() {
+                 eprintln!("⚠️  Failed to open shared memory: {}", std::io::Error::last_os_error());
+                 return None;
+            }
+
+            let shm_ptr = MapViewOfFile(
+                handle,
+                FILE_MAP_ALL_ACCESS,
+                0,
+                0,
+                std::mem::size_of::<HealthStatus>(),
+            );
+
+            CloseHandle(handle); // We can close the handle after mapping
+
+            if shm_ptr.is_null() {
+                 eprintln!("⚠️  Failed to map shared memory: {}", std::io::Error::last_os_error());
+                 return None;
+            }
+
+            eprintln!("✅ Health monitor initialized");
+
             Some(Self {
                 shm_ptr: shm_ptr as *mut HealthStatus,
             })
@@ -125,10 +167,14 @@ impl Drop for HealthMonitor {
     fn drop(&mut self) {
         unsafe {
             if !self.shm_ptr.is_null() {
+                #[cfg(unix)]
                 libc::munmap(
                     self.shm_ptr as *mut libc::c_void,
                     std::mem::size_of::<HealthStatus>(),
                 );
+
+                #[cfg(windows)]
+                winapi::um::memoryapi::UnmapViewOfFile(self.shm_ptr as *const _);
             }
         }
     }
