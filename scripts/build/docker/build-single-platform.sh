@@ -27,9 +27,9 @@
 #     - windows-x86_64  : Windows 64-bit
 #     - windows-x86     : Windows 32-bit
 #   
-#   macOS (NOT SUPPORTED YET):
-#     - macos-x86_64    : macOS Intel (requires OSXCross)
-#     - macos-arm64     : macOS Apple Silicon (requires OSXCross)
+#   macOS:
+#     - NOT SUPPORTED in Docker build.
+#     - Use scripts/build/host/build-single-platform.sh instead.
 #
 # OUTPUT:
 #   Built binary will be in versioned directory:
@@ -85,8 +85,8 @@ if [ -z "$PLATFORM" ]; then
     echo "  linux-armv7     - Linux ARMv7 (armv7-unknown-linux-gnueabihf)"
     echo "  windows-x86_64  - Windows 64-bit (x86_64-pc-windows-gnullvm)"
     echo "  windows-x86     - Windows 32-bit (i686-pc-windows-gnullvm)"
-    echo "  macos-x86_64    - macOS Intel (x86_64-apple-darwin)"
-    echo "  macos-arm64     - macOS Apple Silicon (aarch64-apple-darwin)"
+    echo ""
+    echo "  NOTE: For macOS builds, use scripts/build/host/build-single-platform.sh"
     exit 1
 fi
 
@@ -130,15 +130,11 @@ case "$PLATFORM" in
         LINKER="i686-w64-mingw32-clang"
         NAME="Windows x86 (32-bit) (LLVM)"
         ;;
-    macos-x86_64)
-        TARGET="x86_64-apple-darwin"
-        LINKER="x86_64-apple-darwin-gcc"
-        NAME="macOS Intel"
-        ;;
-    macos-arm64)
-        TARGET="aarch64-apple-darwin"
-        LINKER="aarch64-apple-darwin-gcc"
-        NAME="macOS Apple Silicon"
+    macos-x86_64|macos-arm64)
+        echo "❌ macOS builds are not supported in Docker."
+        echo "   Please use the host build script instead:"
+        echo "   ./scripts/build/host/build-single-platform.sh $PLATFORM"
+        exit 1
         ;;
     *)
         echo "❌ Unknown platform: $PLATFORM"

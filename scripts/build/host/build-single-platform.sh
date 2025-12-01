@@ -21,6 +21,8 @@
 #   - linux-armv7     : Linux ARM 32-bit
 #   - windows-x86_64  : Windows 64-bit
 #   - windows-x86     : Windows 32-bit
+#   - macos-x86_64    : macOS Intel (requires OSXCross)
+#   - macos-arm64     : macOS Apple Silicon (requires OSXCross)
 #
 # OUTPUT:
 #   Binary built in: target/<triple>/release/overload[.exe]
@@ -49,6 +51,8 @@ if [ -z "$PLATFORM" ]; then
     echo "  linux-armv7     - Linux ARMv7 (armv7-unknown-linux-gnueabihf)"
     echo "  windows-x86_64  - Windows 64-bit (x86_64-pc-windows-gnullvm)"
     echo "  windows-x86     - Windows 32-bit (i686-pc-windows-gnullvm)"
+    echo "  macos-x86_64    - macOS Intel (x86_64-apple-darwin)"
+    echo "  macos-arm64     - macOS Apple Silicon (aarch64-apple-darwin)"
     exit 1
 fi
 
@@ -127,6 +131,30 @@ case "$PLATFORM" in
             LINKER=""
             NAME="Windows x86 (MSVC Native)"
         fi
+        ;;
+    macos-x86_64)
+        TARGET="x86_64-apple-darwin"
+        # Use clang as the linker driver
+        LINKER="x86_64-apple-darwin25.1-clang"
+        
+        # Set environment variables for C/C++ compilation (needed by ring, etc.)
+        export CC_x86_64_apple_darwin="x86_64-apple-darwin25.1-clang"
+        export CXX_x86_64_apple_darwin="x86_64-apple-darwin25.1-clang++"
+        export AR_x86_64_apple_darwin="x86_64-apple-darwin25.1-ar"
+        
+        NAME="macOS Intel (x86_64)"
+        ;;
+    macos-arm64)
+        TARGET="aarch64-apple-darwin"
+        # Use clang as the linker driver
+        LINKER="aarch64-apple-darwin25.1-clang"
+        
+        # Set environment variables for C/C++ compilation (needed by ring, etc.)
+        export CC_aarch64_apple_darwin="aarch64-apple-darwin25.1-clang"
+        export CXX_aarch64_apple_darwin="aarch64-apple-darwin25.1-clang++"
+        export AR_aarch64_apple_darwin="aarch64-apple-darwin25.1-ar"
+        
+        NAME="macOS Apple Silicon (arm64)"
         ;;
     *)
         echo "❌ Unknown platform: $PLATFORM"

@@ -10,8 +10,12 @@ pub fn load_embedded_config() -> Result<Config, String> {
     // 
     // #[used] ensures this static is kept in the output even if unused
     // #[link_section] places it in a named .license section
+    //
+    // On macOS (Mach-O), sections must be part of a segment, so we use "__DATA,.license".
+    // On Linux (ELF) and Windows (PE), we can just use the section name ".license".
     #[used]
-    #[unsafe(link_section = ".license")]
+    #[cfg_attr(target_os = "macos", unsafe(link_section = "__DATA,.license"))]
+    #[cfg_attr(not(target_os = "macos"), unsafe(link_section = ".license"))]
     static LICENSE_DATA: [u8; 4096] = [0; 4096];
     
     // Try to read from the static first (works when binary runs directly)
