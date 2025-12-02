@@ -6,24 +6,24 @@ authors = ["Krishna Kushwaha"]
 description = "License verification binary for KillCode binary protection"
 
 [dependencies]
-reqwest = { version = "0.11", features = ["blocking", "json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
 chrono = "0.4"
-rand = "0.8"
-hostname = "0.3"
-subtle = "2.5"
-nix = { version = "0.27", features = ["signal", "process"] }
+rand = "0.9"
+hostname = "0.4"
+subtle = "2.6"
+nix = { version = "0.30", features = ["signal", "process"] }
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["tlhelp32", "processthreadsapi", "handleapi", "winnt", "psapi", "memoryapi", "winbase"] }
 
 [dev-dependencies]
-tempfile = "3.8"
+tempfile = "3.23"
 
 [profile.release]
 strip = true
