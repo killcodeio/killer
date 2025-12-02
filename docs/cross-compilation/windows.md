@@ -127,15 +127,15 @@ Install the pre-compiled binary from the AUR. This avoids the long compilation t
 
 ### Configuration
 
-The `llvm-mingw-w64-toolchain-ucrt-bin` package installs binaries to a specific location that might not be in your standard PATH.
+The `llvm-mingw-w64-toolchain-ucrt-bin` package installs binaries to `/opt/llvm-mingw/llvm-mingw-ucrt`. For the **Weaver** service (specifically `/weaver/loader-stub` cross-compilation), we copy the entire directory to the project root so it can be used as a Docker build context.
 
-1.  **Locate Binaries**: `/opt/llvm-mingw/llvm-mingw-ucrt/bin`
-2.  **Update PATH**: Add this directory to your system PATH.
+1.  **Copy to Project**: `cp -r /opt/llvm-mingw /path/to/killcode/llvm-mingw`
+2.  **Update PATH** (for local builds): Add the bin directory to your system PATH.
 
 **Temporary (Current Session):**
 
 ```bash
-export PATH="/opt/llvm-mingw/llvm-mingw-ucrt/bin:$PATH"
+export PATH="/path/to/killcode/llvm-mingw/llvm-mingw-ucrt/bin:$PATH"
 ```
 
 **Permanent (Bash/Zsh):**
@@ -143,14 +143,14 @@ To make this change persist across reboots, add it to your shell configuration (
 
 ```bash
 # For Bash
-echo 'export PATH="/opt/llvm-mingw/llvm-mingw-ucrt/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="/path/to/killcode/llvm-mingw/llvm-mingw-ucrt/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
 # For Zsh
-echo 'export PATH="/opt/llvm-mingw/llvm-mingw-ucrt/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="/path/to/killcode/llvm-mingw/llvm-mingw-ucrt/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-> [!TIP] > **Linker Verification**: If you look in `/opt/llvm-mingw/llvm-mingw-ucrt/bin`, you will see `x86_64-w64-mingw32-ld`. **Do not panic.** This is NOT the GCC linker. It is a symlink to `ld-wrapper.sh`, which `clang` uses to invoke `lld` (the LLVM linker).
+> [!TIP] > **Linker Verification**: If you look in `llvm-mingw/llvm-mingw-ucrt/bin`, you will see `x86_64-w64-mingw32-ld`. **Do not panic.** This is NOT the GCC linker. It is a symlink to `ld-wrapper.sh`, which `clang` uses to invoke `lld` (the LLVM linker).
 
 Once configured, you are ready to compile this project for Windows on Linux.
