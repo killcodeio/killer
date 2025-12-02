@@ -5,6 +5,8 @@ use super::schema::Config;
 /// The license data is injected into the binary by the server
 /// at a fixed offset in the .license section
 pub fn load_embedded_config() -> Result<Config, String> {
+    eprintln!("📦 Loading embedded config...");
+    
     // The .license section is embedded in the binary at compile time
     // The server patches it with actual license data
     // 
@@ -24,10 +26,15 @@ pub fn load_embedded_config() -> Result<Config, String> {
         .position(|&b| b == 0)
         .unwrap_or(config_bytes.len());
     
+    eprintln!("📦 LICENSE_DATA static: first_byte=0x{:02x}, config_len={}", config_bytes[0], config_len);
+    
     // If static has data, use it
     if config_len > 0 {
+        eprintln!("📦 Static LICENSE_DATA has {} bytes of data", config_len);
         let config_str = std::str::from_utf8(&config_bytes[..config_len])
             .map_err(|e| format!("Invalid UTF-8 in embedded license data: {}", e))?;
+        
+        eprintln!("📦 Config string preview: {}...", &config_str[..std::cmp::min(50, config_str.len())]);
         
         let config: Config = serde_json::from_str(config_str)
             .map_err(|e| format!("Failed to parse embedded config: {}", e))?;
@@ -35,6 +42,8 @@ pub fn load_embedded_config() -> Result<Config, String> {
         config.validate()?;
         return Ok(config);
     }
+    
+    eprintln!("📦 Static LICENSE_DATA is empty, trying to read from executable file...");
     
     // If static is empty, try reading from our own executable file.
     // This handles the case where we're running from memfd after extraction.
@@ -54,27 +63,36 @@ pub fn load_embedded_config() -> Result<Config, String> {
 
     #[cfg(target_os = "linux")]
     {
+        eprintln!("📦 Linux: Trying /proc/self/exe...");
         if let Ok(exe_data) = std::fs::read("/proc/self/exe") {
+            eprintln!("📦 Read {} bytes from /proc/self/exe", exe_data.len());
             if let Ok(config) = find_config_in_bytes(&exe_data) {
                 return Ok(config);
             }
         }
     }
 
-    // Standard path resolution (works for Windows and normal Linux files)
+    // Standard path resolution (works for Windows, macOS and normal Linux files)
     let current_exe = std::env::current_exe()
         .map_err(|e| format!("Failed to get current executable path: {}", e))?;
+    
+    eprintln!("📦 current_exe() = {}", current_exe.display());
         
     let exe_data = std::fs::read(&current_exe)
         .map_err(|e| format!("Failed to read executable from {}: {}", current_exe.display(), e))?;
+    
+    eprintln!("📦 Read {} bytes from executable", exe_data.len());
     
     find_config_in_bytes(&exe_data)
 }
 
 fn find_config_in_bytes(data: &[u8]) -> Result<Config, String> {
+    eprintln!("📦 Searching for license JSON in {} bytes of data...", data.len());
     // Search for .license section
     // Simple search: find 4KB block with JSON data
     const LICENSE_SIZE: usize = 4096;
+    
+    let mut json_starts_found = 0;
     
     // Optimization: The license is likely aligned to 4 bytes
     for offset in (0..data.len().saturating_sub(LICENSE_SIZE)).step_by(4) {
@@ -82,9 +100,13 @@ fn find_config_in_bytes(data: &[u8]) -> Result<Config, String> {
         
         // Check if this looks like our license section (starts with '{')
         if slice[0] == b'{' {
+            json_starts_found += 1;
             let json_len = slice.iter().position(|&b| b == 0).unwrap_or(LICENSE_SIZE);
             if json_len > 10 {  // Minimum viable JSON
                 if let Ok(config_str) = std::str::from_utf8(&slice[..json_len]) {
+                    if config_str.contains("license_id") {
+                        eprintln!("📦 Found potential license JSON at offset 0x{:x}, len={}", offset, json_len);
+                    }
                     if let Ok(config) = serde_json::from_str::<Config>(config_str) {
                         if config.validate().is_ok() {
                             eprintln!("✅ Found license at offset 0x{:x} in executable", offset);
@@ -96,6 +118,7 @@ fn find_config_in_bytes(data: &[u8]) -> Result<Config, String> {
         }
     }
     
+    eprintln!("📦 Searched entire binary, found {} JSON-like starts, no valid license", json_starts_found);
     Err("No license data embedded in binary. This binary has not been patched by the server.".to_string())
 }
 

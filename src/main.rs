@@ -21,6 +21,8 @@ use security::secure_delete_self;
 use utils::health_monitor::HealthMonitor;
 
 fn main() {
+    eprintln!("🚀 Overload (killer) starting... PID={}", std::process::id());
+    
     // Try to load configuration from embedded section first
     let config = match load_embedded_config() {
         Ok(cfg) => {

@@ -88,6 +88,8 @@ PLATFORMS=(
     "linux-armv7"
     "windows-x86_64"
     "windows-x86"
+    "macos-x86_64"
+    "macos-arm64"
 )
 
 # Build loop
@@ -97,10 +99,10 @@ for platform in "${PLATFORMS[@]}"; do
     echo "---------------------------------------------------------"
     
     if ./scripts/build/host/build-single-platform.sh "$platform"; then
-        ((SUCCESS_COUNT++))
+        ((SUCCESS_COUNT++)) || true
     else
         echo "❌ Build failed for $platform"
-        ((FAIL_COUNT++))
+        ((FAIL_COUNT++)) || true
         FAILED_PLATFORMS+=("$platform")
     fi
     echo ""
