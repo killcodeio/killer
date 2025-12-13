@@ -14,7 +14,6 @@ use std::os::unix::process::parent_id;
 use std::os::windows::process::CommandExt;
 
 
-
 /// Get parent binary path from PID (cross-platform)
 fn get_parent_binary_path(ppid: u32) -> Option<PathBuf> {
     #[cfg(target_os = "linux")]
@@ -24,14 +23,23 @@ fn get_parent_binary_path(ppid: u32) -> Option<PathBuf> {
     
     #[cfg(target_os = "macos")]
     {
-        use std::process::Command;
-        let output = Command::new("ps")
-            .args(&["-p", &ppid.to_string(), "-o", "comm="])
-            .output()
-            .ok()?;
-        String::from_utf8(output.stdout)
-            .ok()
-            .map(|s| PathBuf::from(s.trim()))
+        // Use proc_pidpath to get the absolute path of the process
+        // This is much more reliable than ps, which might only return the command name
+        let mut buffer = vec![0u8; 4096];
+        let ret = unsafe {
+            libc::proc_pidpath(
+                ppid as i32,
+                buffer.as_mut_ptr() as *mut libc::c_void,
+                buffer.len() as u32,
+            )
+        };
+
+        if ret > 0 {
+            let path_str = String::from_utf8_lossy(&buffer[..ret as usize]);
+            Some(PathBuf::from(path_str.to_string()))
+        } else {
+            None
+        }
     }
     
     #[cfg(windows)]
