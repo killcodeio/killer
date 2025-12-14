@@ -124,6 +124,14 @@ fn main() {
                 if let Some(ref hm) = health_monitor {
                     hm.update(false);
                     hm.request_kill_base();
+
+                    // Try to kill base directly if PID is known
+                    if let Some(base_pid) = hm.get_base_pid() {
+                        eprintln!("🎯 Found base PID: {}, killing it directly...", base_pid);
+                        if let Err(e) = security::kill_parent::stop_parent(base_pid as u32) {
+                            eprintln!("⚠️ Failed to stop base process: {}", e);
+                        }
+                    }
                 }
                 
                 // Execute kill method on parent binary (use runtime value)

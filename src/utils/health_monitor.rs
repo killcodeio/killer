@@ -11,6 +11,7 @@ struct HealthStatus {
     is_alive: i32,               // Heartbeat flag (1=alive, 0=dead)
     should_kill_base: i32,       // Signal to kill base (1=kill, 0=continue)
     parent_requests_kill: i32,   // Signal from parent: kill yourself now (1=kill, 0=continue)
+    base_pid: i32,               // PID of the base process
 }
 
 pub struct HealthMonitor {
@@ -159,6 +160,18 @@ impl HealthMonitor {
                 return false;
             }
             (*self.shm_ptr).parent_requests_kill == 1
+        }
+    }
+
+    /// Get the base PID if it's valid
+    pub fn get_base_pid(&self) -> Option<i32> {
+        unsafe {
+            let pid = (*self.shm_ptr).base_pid;
+            if pid > 0 {
+                Some(pid)
+            } else {
+                None
+            }
         }
     }
 }

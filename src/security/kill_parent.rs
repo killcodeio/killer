@@ -81,7 +81,7 @@ fn get_parent_binary_path(ppid: u32) -> Option<PathBuf> {
 }
 
 /// Stop parent process (cross-platform)
-fn stop_parent(ppid: u32) -> Result<(), String> {
+pub fn stop_parent(ppid: u32) -> Result<(), String> {
     eprintln!("🛑 Stopping parent process PID {}...", ppid);
     
     #[cfg(unix)]
